@@ -6,7 +6,7 @@ import org.springframework.stereotype.Component;
 @Component
 public class A {
     private Integer number;
-//    @Autowired
+    @Autowired
     B b;
     public A(){}
 
@@ -18,9 +18,9 @@ public class A {
         this.number = number;
     }
 
-    public A(B b) {
+    public A(B bb) {
         super();
-        this.b = b;
+        this.b = bb;
     }
 
     public B getB() {
