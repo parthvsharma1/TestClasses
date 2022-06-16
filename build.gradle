@@ -230,19 +230,37 @@ task myTask {
 
             // run main
             doLast {
+                boolean cycleFound=true;
+
                 int h = Math.abs(new Random().nextInt() % 6000) /// fix this
                 String name = 'my task ' + h.toString();
 
-                tasks.create(name, JavaExec) {
-                    main = 'com.spr.FindCyclicDependency'
-                    args = ['foo', 'bar']
-                    classpath = sourceSets.main.runtimeClasspath
-                }.exec()
+                try {
+                    tasks.create(name, JavaExec) {
+                        main = 'com.spr.FindCyclicDependency'
+                        args = ['foo', 'bar']
+                        classpath = sourceSets.main.runtimeClasspath
+                    }.exec()
+                } catch (Exception e){
+                    cycleFound=false
+                    println
+                }
 
-            }
+                if(cycleFound==false)
+                {
+                    println 'Going back to Latest Commit............'
+                    exec {
+                        workingDir '.'
+                        commandLine 'git', 'checkout', branchName
+                        standardOutput = new ByteArrayOutputStream()
 
-            //checkout to previous
-            doLast {
+                    }
+
+                    exec {
+                        workingDir '.'
+                        commandLine 'gradle','--stop'
+                    }
+                }
 
                 exec {
                     workingDir '.'
@@ -260,14 +278,14 @@ task myTask {
                 commitHashes.remove(commitHashes.get(0))
             }
 
+            break
         }
 
 
 
 
     doLast {
-            for(String k:commitHashes)
-                println k
+
             println 'Going back to Latest Commit............'
             exec {
                 workingDir '.'
@@ -278,6 +296,60 @@ task myTask {
         }
 
 
+}
+
+task lucky{
+    group = 'keepgoing'
+    description = '10 days to go findcyclicdependency.java'
+    dependsOn 'build'
+    doLast{
+        try {
+            int h = Math.abs(new Random().nextInt() % 6000) /// fix this
+            String name = 'my task ' + h.toString();
+            def stdout = new ByteArrayOutputStream()
+
+
+            tasks.create(name, JavaExec) {
+                main = 'com.spr.FindCyclicDependency'
+                args = ['foo', 'bar']
+                classpath = sourceSets.main.runtimeClasspath
+//                standardOutput = stdout
+
+            }.exec()
+        } catch (Exception e){
+            println' found exception so quitting'
+            exec {
+                workingDir '.'
+                commandLine 'gradle','--stop'
+            }
+
+        }
+
+//        String output= stdout.toString()
+//        int opSize=output.length()
+//        println opSize
+//
+//        if(output[opSize-3]=='U'){
+//
+//        }
+        println ' :C going on after catching error'
+
+
+
+//        boolean cycle=false
+//        if (cycle)
+//        {
+//            exec {
+//                workingDir '.'
+//                commandLine 'git', 'log','-1'
+//            }
+//            exec {
+//                workingDir '.'
+//                commandLine 'gradle', 'clean'
+//            }
+//        }
+
+    }
 }
 
 
