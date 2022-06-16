@@ -1,8 +1,9 @@
 package com.spr.sprinklrr;
 
 import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 
-@Component
+@Service
 public class MyImplement1 implements MyInterface{
     @Override
     public String func(){

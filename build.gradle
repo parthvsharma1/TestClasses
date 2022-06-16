@@ -1,5 +1,7 @@
+
 plugins {
     id 'java'
+//    id "org.ajoberstar.grgit" version "1.6.0"
 }
 
 group 'org.example'
@@ -24,3 +26,230 @@ dependencies {
 test {
     useJUnitPlatform()
 }
+
+
+
+task checkout {
+    doLast {
+    def prevcom = "git rev-parse HEAD^".execute().text.trim()
+        def ip = new ByteArrayOutputStream()
+        exec {
+            workingDir '.'
+            commandLine 'git','log'
+            standardOutput = ip
+        }
+//            println ip
+
+    }
+}
+
+//task simple{
+//    doLast{
+//        println 'cleaner task done'
+//    }
+//
+//}
+
+task hash {
+        def branchName = "git branch --show-current".execute().text.trim()
+//        def kk="git log".execute().text.trim()
+    doLast {
+
+        exec {
+            workingDir '.'
+            commandLine 'git','checkout',branchName
+            standardOutput = new ByteArrayOutputStream()
+        }
+    }
+}
+
+task toPrevious{
+    def tasks = [clean,checkout]
+    int n=tasks.size();
+    for (int i = 1; i < n ; i++) {
+        tasks[i].mustRunAfter(tasks[i-1])
+    }
+    dependsOn(tasks)
+}
+
+
+task mainrunner(type: JavaExec) {
+    group = 'Run' // <-- change the name as per your need
+    description = 'Small description what this run will do'
+
+    for(int i=0;i<2;i++) {
+        classpath sourceSets.main.runtimeClasspath // <-- Don't change this
+        main = "com.spr.Main"
+        args "arg1", "arg2"
+    }
+}
+
+
+task cyclefinder (type: JavaExec){
+
+    group = 'Run' // <-- change the name as per your need
+    description = 'Small description what this run will do'
+
+
+        def ip = new ByteArrayOutputStream()
+        classpath sourceSets.main.runtimeClasspath // <-- Don't change this
+        main = "com.spr.FindCyclicDependency"
+        args "arg1", "arg2"
+        standardOutput = ip
+
+//
+        // clean the build folder by running gradle clean from command line
+        doLast {
+            println 'printed op is : '+ip
+            exec {
+                workingDir '.'
+                commandLine 'gradle', 'clean'
+            }
+        }
+
+}
+
+
+
+//task cleaner{
+//    doLast {
+////        tasks.create("lol") {
+////
+////        }.exec()
+//        clean()
+//    }
+//
+//}
+
+
+
+task mainTask{
+    def tasks=[cyclefinder,mainrunner,clean]
+    int n=tasks.size();
+    for (int i = 1; i < n ; i++) {
+
+        tasks[i].mustRunAfter(tasks[i-1])
+    }
+    dependsOn(tasks)
+
+}
+
+//task bettercompile{
+//    group = 'MyGroup'
+//    description = 'Runs findcyclicdependency.java'
+////    doLast {
+////        tasks.clean
+////        tasks.create('waah') {
+////            println 'in taks'
+////        }.exec()
+////    }
+//    doLast {
+//        exec {
+//            workingDir '.'
+//            commandLine 'pwd'
+////            standardOutput = new ByteArrayOutputStream()
+//
+//        }
+//        exec {
+//            workingDir '.'
+//            commandLine 'git','log','-1'
+////            standardOutput = new ByteArrayOutputStream()
+//
+//        }
+//    }
+//
+//
+//}
+
+
+
+task myTask {
+    group = 'MyGroup'
+    description = 'Runs findcyclicdependency.java'
+    dependsOn 'build'
+
+    def branchName = "git branch --show-current".execute().text.trim()
+
+    for(int i=0;i<2;i++) {
+//        doLast{println 'last'+i.toString()}
+        doLast {
+            int h=Math.abs(new Random().nextInt() % 6000) /// fix this
+            String name='my task '+h.toString();
+
+            tasks.create(name, JavaExec) {
+                main = 'com.spr.FindCyclicDependency'
+                args = ['foo', 'bar']
+                classpath = sourceSets.main.runtimeClasspath
+            }.exec()
+
+        }
+
+        doLast {
+            def prevcom = "git rev-parse HEAD^".execute().text.trim()
+            exec {
+                workingDir '.'
+                commandLine 'git','checkout',prevcom
+                standardOutput = new ByteArrayOutputStream()
+
+            }
+
+//        }
+//
+//        doLast {
+            exec {
+                workingDir '.'
+                commandLine 'gradle', 'compileJava'
+                standardOutput = new ByteArrayOutputStream()
+
+            }
+        }
+
+    }
+
+    doLast {
+        println 'Going back to Latest Commit............'
+        exec {
+            workingDir '.'
+            commandLine 'git','checkout',branchName
+            standardOutput = new ByteArrayOutputStream()
+
+        }
+    }
+}
+
+
+
+
+
+
+//task haw{
+//    doLast{
+//        URL[] urls = sourceSets.main.runtimeClasspath.files as URL[]
+//        def classloader = new URLClassLoader(urls, null)
+//        Class myClass = classloader.load("com.spr.mericlass")
+//        def myInstance = myClass.newInstance()
+//        Method method = myClass.getMethod("show")
+//        method.invoke(myInstance)
+//    }
+//}
+
+//buildscript {
+//    dependencies {
+//        classpath project(':LibraryCode')
+//    }
+//}
+//task doStuff {
+//    doLast {
+//        def myClass = new mericlass();
+//        myClass.doStuff()
+//    }
+//}
+
+
+//task myTest{
+//    doLast {
+//        println "Executing MyClass method"
+//        def v = new mericlass();
+//        v.show();
+//    }
+//}
