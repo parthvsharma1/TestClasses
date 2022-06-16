@@ -27,7 +27,29 @@ test {
     useJUnitPlatform()
 }
 
+task gethistory{
+        ArrayList<String> commitHashes
 
+        doFirst{
+        String numCommits="git rev-list --count HEAD".execute().text.trim().toString()
+        Integer numberOfCommits=Integer.valueOf(numCommits)
+        commitHashes=new ArrayList<>();
+        String suffix=""
+        for(int i=0;i<numberOfCommits;i++)
+        {
+            if(i!=0)
+            suffix=suffix+"^"
+
+            String command="git rev-parse HEAD"+suffix
+            String currentCommit = command.execute().text.trim().toString();
+            commitHashes.add(currentCommit)
+        }
+
+        for(String k:commitHashes)
+            println k
+
+    }
+}
 
 task checkout {
     doLast {
@@ -62,7 +84,16 @@ task hash {
         }
     }
 }
+task mainTask{
+    def tasks=[build,clean]
+    int n=tasks.size();
+    for (int i = 1; i < n ; i++) {
 
+        tasks[i].mustRunAfter(tasks[i-1])
+    }
+    dependsOn(tasks)
+
+}
 task toPrevious{
     def tasks = [clean,checkout]
     int n=tasks.size();
@@ -73,14 +104,34 @@ task toPrevious{
 }
 
 
-task mainrunner(type: JavaExec) {
-    group = 'Run' // <-- change the name as per your need
-    description = 'Small description what this run will do'
+task mainrunner {
+    doLast{
+        String numCommits="git rev-list --count HEAD".execute().text.trim().toString()
+        Integer numberOfCommits=Integer.valueOf(numCommits)
+        ArrayList<String>commitHashes=new ArrayList<>();
+        String suffix=""
 
-    for(int i=0;i<2;i++) {
-        classpath sourceSets.main.runtimeClasspath // <-- Don't change this
-        main = "com.spr.Main"
-        args "arg1", "arg2"
+        for(int i=0;i<numberOfCommits;i++)
+        {
+            if(i!=0)
+                suffix=suffix+"^"
+
+            String command="git rev-parse HEAD"+suffix
+            String currentCommit = command.execute().text.trim().toString();
+            commitHashes.add(currentCommit)
+        }
+
+        for(String k:commitHashes)
+            println k
+
+        doLast{
+            exec{
+                workingDir '.'
+                commandLine 'git','log','-1'
+                standardOutput = new ByteArrayOutputStream()
+            }
+        }
+
     }
 }
 
@@ -121,19 +172,6 @@ task cyclefinder (type: JavaExec){
 //
 //}
 
-
-
-task mainTask{
-    def tasks=[cyclefinder,mainrunner,clean]
-    int n=tasks.size();
-    for (int i = 1; i < n ; i++) {
-
-        tasks[i].mustRunAfter(tasks[i-1])
-    }
-    dependsOn(tasks)
-
-}
-
 //task bettercompile{
 //    group = 'MyGroup'
 //    description = 'Runs findcyclicdependency.java'
@@ -169,68 +207,78 @@ task myTask {
     dependsOn 'build'
 
     def branchName = "git branch --show-current".execute().text.trim()
-    boolean first=true
-    for(int i=0;i<3;i++) {
-//        doLast{println 'last'+i.toString()}
-        doLast {
-            int h=Math.abs(new Random().nextInt() % 6000) /// fix this
-            String name='my task '+h.toString();
 
-            tasks.create(name, JavaExec) {
-                main = 'com.spr.FindCyclicDependency'
-                args = ['foo', 'bar']
-                classpath = sourceSets.main.runtimeClasspath
-            }.exec()
+    ArrayList<String> commitHashes=new ArrayList<>()
+    String numCommits = "git rev-list --count HEAD".execute().text.trim().toString()
+    Integer numberOfCommits = Integer.valueOf(numCommits)
+
+        String suffix = ""
+        for (int i = 1; i < numberOfCommits; i++) {
+                suffix = suffix + "^"
+
+            String command = "git rev-parse HEAD" + suffix
+            String currentCommit = command.execute().text.trim().toString();
+            commitHashes.add(currentCommit)
+        }
+        commitHashes.remove("7632ceba4e1f3295b28608aac26d86e55cc5ba2e")
+        numberOfCommits=commitHashes.size()
+
+
+
+        boolean first = true
+        for (int i = 0; i < numberOfCommits; i++) {
+
+            // run main
+            doLast {
+                int h = Math.abs(new Random().nextInt() % 6000) /// fix this
+                String name = 'my task ' + h.toString();
+
+                tasks.create(name, JavaExec) {
+                    main = 'com.spr.FindCyclicDependency'
+                    args = ['foo', 'bar']
+                    classpath = sourceSets.main.runtimeClasspath
+                }.exec()
+
+            }
+
+            //checkout to previous
+            doLast {
+
+                exec {
+                    workingDir '.'
+                    commandLine 'git', 'checkout', commitHashes.get(0)
+                    standardOutput = new ByteArrayOutputStream()
+                }
+
+                exec {
+                    workingDir '.'
+                    commandLine 'gradle', 'compileJava'
+                    standardOutput = new ByteArrayOutputStream()
+
+                }
+
+                commitHashes.remove(commitHashes.get(0))
+            }
 
         }
 
-        doLast {
 
-            if(first==true){
-                def prevvcom = "git rev-parse HEAD^^".execute().text.trim()
-                exec {
-                    workingDir '.'
-                    commandLine 'git','checkout',prevvcom
-                    standardOutput = new ByteArrayOutputStream()
 
-                }
-                first=false
-            }
-            else {
-                def prevcom = "git rev-parse HEAD^".execute().text.trim()
-                exec {
-                    workingDir '.'
-                    commandLine 'git', 'checkout', prevcom
-                    standardOutput = new ByteArrayOutputStream()
 
-                }
-            }
-
-//        }
-//
-//        doLast {
+    doLast {
+            for(String k:commitHashes)
+                println k
+            println 'Going back to Latest Commit............'
             exec {
                 workingDir '.'
-                commandLine 'gradle', 'compileJava'
+                commandLine 'git', 'checkout', branchName
                 standardOutput = new ByteArrayOutputStream()
 
             }
         }
 
-    }
 
-    doLast {
-        println 'Going back to Latest Commit............'
-        exec {
-            workingDir '.'
-            commandLine 'git','checkout',branchName
-            standardOutput = new ByteArrayOutputStream()
-
-        }
-    }
 }
-
-
 
 
 
