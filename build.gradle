@@ -1,3 +1,4 @@
+import java.time.Duration
 
 plugins {
     id 'java'
@@ -27,113 +28,6 @@ test {
     useJUnitPlatform()
 }
 
-task gethistory{
-        ArrayList<String> commitHashes
-
-        doFirst{
-        String numCommits="git rev-list --count HEAD".execute().text.trim().toString()
-        Integer numberOfCommits=Integer.valueOf(numCommits)
-        commitHashes=new ArrayList<>();
-        String suffix=""
-        for(int i=0;i<numberOfCommits;i++)
-        {
-            if(i!=0)
-            suffix=suffix+"^"
-
-            String command="git rev-parse HEAD"+suffix
-            String currentCommit = command.execute().text.trim().toString();
-            commitHashes.add(currentCommit)
-        }
-
-        for(String k:commitHashes)
-            println k
-
-    }
-}
-
-task checkout {
-    doLast {
-    def prevcom = "git rev-parse HEAD^".execute().text.trim()
-        def ip = new ByteArrayOutputStream()
-        exec {
-            workingDir '.'
-            commandLine 'git','log'
-            standardOutput = ip
-        }
-//            println ip
-
-    }
-}
-
-//task simple{
-//    doLast{
-//        println 'cleaner task done'
-//    }
-//
-//}
-
-task hash {
-        def branchName = "git branch --show-current".execute().text.trim()
-//        def kk="git log".execute().text.trim()
-    doLast {
-
-        exec {
-            workingDir '.'
-            commandLine 'git','checkout',branchName
-            standardOutput = new ByteArrayOutputStream()
-        }
-    }
-}
-task mainTask{
-    def tasks=[build,clean]
-    int n=tasks.size();
-    for (int i = 1; i < n ; i++) {
-
-        tasks[i].mustRunAfter(tasks[i-1])
-    }
-    dependsOn(tasks)
-
-}
-task toPrevious{
-    def tasks = [clean,checkout]
-    int n=tasks.size();
-    for (int i = 1; i < n ; i++) {
-        tasks[i].mustRunAfter(tasks[i-1])
-    }
-    dependsOn(tasks)
-}
-
-
-task mainrunner {
-    doLast{
-        String numCommits="git rev-list --count HEAD".execute().text.trim().toString()
-        Integer numberOfCommits=Integer.valueOf(numCommits)
-        ArrayList<String>commitHashes=new ArrayList<>();
-        String suffix=""
-
-        for(int i=0;i<numberOfCommits;i++)
-        {
-            if(i!=0)
-                suffix=suffix+"^"
-
-            String command="git rev-parse HEAD"+suffix
-            String currentCommit = command.execute().text.trim().toString();
-            commitHashes.add(currentCommit)
-        }
-
-        for(String k:commitHashes)
-            println k
-
-        doLast{
-            exec{
-                workingDir '.'
-                commandLine 'git','log','-1'
-                standardOutput = new ByteArrayOutputStream()
-            }
-        }
-
-    }
-}
 
 
 task cyclefinder (type: JavaExec){
@@ -142,247 +36,148 @@ task cyclefinder (type: JavaExec){
     description = 'Small description what this run will do'
 
 
-        def ip = new ByteArrayOutputStream()
-        classpath sourceSets.main.runtimeClasspath // <-- Don't change this
-        main = "com.spr.FindCyclicDependency"
-        args "arg1", "arg2"
-        standardOutput = ip
+    def ip = new ByteArrayOutputStream()
+    classpath sourceSets.main.runtimeClasspath // <-- Don't change this
+    main = "com.spr.FindCyclicDependency"
+    args "arg1", "arg2"
+    standardOutput = ip
 
 //
-        // clean the build folder by running gradle clean from command line
-        doLast {
-            println 'printed op is : '+ip
-            exec {
-                workingDir '.'
-                commandLine 'gradle', 'clean'
-            }
+    // clean the build folder by running gradle clean from command line
+    doLast {
+        println 'printed op is : '+ip
+        exec {
+            workingDir '.'
+            commandLine 'gradle', 'clean'
         }
+    }
 
 }
 
+long timeOutLimit=45
 
-
-//task cleaner{
-//    doLast {
-////        tasks.create("lol") {
-////
-////        }.exec()
-//        clean()
-//    }
-//
-//}
-
-//task bettercompile{
-//    group = 'MyGroup'
-//    description = 'Runs findcyclicdependency.java'
-////    doLast {
-////        tasks.clean
-////        tasks.create('waah') {
-////            println 'in taks'
-////        }.exec()
-////    }
-//    doLast {
-//        exec {
-//            workingDir '.'
-//            commandLine 'pwd'
-////            standardOutput = new ByteArrayOutputStream()
-//
-//        }
-//        exec {
-//            workingDir '.'
-//            commandLine 'git','log','-1'
-////            standardOutput = new ByteArrayOutputStream()
-//
-//        }
-//    }
-//
-//
-//}
-
-
-
-task myTask {
+task CircDep {
     group = 'MyGroup'
     description = 'Runs findcyclicdependency.java'
     dependsOn 'build'
 
-    def branchName = "git branch --show-current".execute().text.trim()
 
     ArrayList<String> commitHashes=new ArrayList<>()
     String numCommits = "git rev-list --count HEAD".execute().text.trim().toString()
     Integer numberOfCommits = Integer.valueOf(numCommits)
 
-        String suffix = ""
-        for (int i = 1; i < numberOfCommits; i++) {
-                suffix = suffix + "^"
+    String suffix = ""
+    for (int i = 0; i < numberOfCommits; i++) {
+        if(i!=0)
+            suffix = suffix + "^"
 
-            String command = "git rev-parse HEAD" + suffix
-            String currentCommit = command.execute().text.trim().toString();
-            commitHashes.add(currentCommit)
-        }
-        commitHashes.remove("7632ceba4e1f3295b28608aac26d86e55cc5ba2e")
-        numberOfCommits=commitHashes.size()
+        String command = "git rev-parse HEAD" + suffix
+        String currentCommit = command.execute().text.trim().toString();
+        commitHashes.add(currentCommit)
+    }
+
+    String startingCommit=commitHashes.get(0);
 
 
+    boolean goodCommit = false
 
-        boolean first = true
-        for (int i = 0; i < numberOfCommits; i++) {
+    for (int i = 1; i < numberOfCommits; i++) {
+        // run main
+        doLast {
+            boolean cycleFound = true;
+            int h = Math.abs(new Random().nextInt() % 6000) /// fix this
+            String name = 'my task ' + h.toString();
 
-            // run main
-            doLast {
-                boolean cycleFound=true;
-
-                int h = Math.abs(new Random().nextInt() % 6000) /// fix this
-                String name = 'my task ' + h.toString();
-
-                try {
-                    tasks.create(name, JavaExec) {
-                        main = 'com.spr.FindCyclicDependency'
-                        args = ['foo', 'bar']
-                        classpath = sourceSets.main.runtimeClasspath
-                    }.exec()
-                } catch (Exception e){
-                    cycleFound=false
-                    println
-                }
-
-                if(cycleFound==false)
-                {
-                    println 'Going back to Latest Commit............'
-                    exec {
-                        workingDir '.'
-                        commandLine 'git', 'checkout', branchName
-                        standardOutput = new ByteArrayOutputStream()
-
-                    }
-
-                    exec {
-                        workingDir '.'
-                        commandLine 'gradle','--stop'
-                    }
-                }
-
-                exec {
-                    workingDir '.'
-                    commandLine 'git', 'checkout', commitHashes.get(0)
-                    standardOutput = new ByteArrayOutputStream()
-                }
-
-                exec {
-                    workingDir '.'
-                    commandLine 'gradle', 'compileJava'
-                    standardOutput = new ByteArrayOutputStream()
-
-                }
-
-                commitHashes.remove(commitHashes.get(0))
+            try {
+                tasks.create(name, JavaExec) {
+                    main = 'com.spr.FindCyclicDependency'
+                    args = ['foo', 'bar']
+                    classpath = sourceSets.main.runtimeClasspath
+                }.exec()
+            } catch (Exception e) {
+                cycleFound = false
             }
 
-            break
+            if (cycleFound == false) {
+                goodCommit = true
+                println 'Commit with no cyclic dependency is : ' + commitHashes.get(0)
+                exec {
+                    workingDir '.'
+                    commandLine 'git', 'checkout',startingCommit
+                    standardOutput = new ByteArrayOutputStream()
+
+                }
+
+                exec {
+                    workingDir '.'
+                    commandLine 'gradle','--stop'
+                }
+
+            }
+
+        }
+        doLast {
+            commitHashes.remove(commitHashes.get(0))
+            exec {
+                workingDir '.'
+                commandLine 'git', 'checkout', '-f', commitHashes.get(0)
+                standardOutput = new ByteArrayOutputStream()
+            }
+
+            timeout=Duration.ofSeconds(timeOutLimit)
         }
 
+        doLast {
+            exec {
+                workingDir '.'
+                commandLine 'gradle', 'compileJava'
+                standardOutput = new ByteArrayOutputStream()
+
+            }
+
+        }
+
+
+    }
 
 
 
     doLast {
+        if(!goodCommit)
+            println 'All Commits have Cycles !!!'
 
-            println 'Going back to Latest Commit............'
-            exec {
-                workingDir '.'
-                commandLine 'git', 'checkout', branchName
-                standardOutput = new ByteArrayOutputStream()
-
-            }
+        println 'Going back to Latest Commit............'
+        exec {
+            workingDir '.'
+            commandLine 'git', 'checkout', startingCommit
+            standardOutput = new ByteArrayOutputStream()
         }
+        timeout=Duration.ofSeconds(timeOutLimit)
+
+    }
 
 
 }
+
 
 task lucky{
     group = 'keepgoing'
     description = '10 days to go findcyclicdependency.java'
     dependsOn 'build'
+    long now=System.currentTimeMillis()
     doLast{
-        try {
-            int h = Math.abs(new Random().nextInt() % 6000) /// fix this
-            String name = 'my task ' + h.toString();
-            def stdout = new ByteArrayOutputStream()
-
-
-            tasks.create(name, JavaExec) {
-                main = 'com.spr.FindCyclicDependency'
-                args = ['foo', 'bar']
-                classpath = sourceSets.main.runtimeClasspath
-//                standardOutput = stdout
-
-            }.exec()
-        } catch (Exception e){
-            println' found exception so quitting'
-            exec {
-                workingDir '.'
-                commandLine 'gradle','--stop'
-            }
-
+        exec {
+            workingDir '.'
+            commandLine 'gradle', 'clean'
         }
-
-//        String output= stdout.toString()
-//        int opSize=output.length()
-//        println opSize
-//
-//        if(output[opSize-3]=='U'){
-//
-//        }
-        println ' :C going on after catching error'
-
-
-
-//        boolean cycle=false
-//        if (cycle)
-//        {
-//            exec {
-//                workingDir '.'
-//                commandLine 'git', 'log','-1'
-//            }
-//            exec {
-//                workingDir '.'
-//                commandLine 'gradle', 'clean'
-//            }
-//        }
-
     }
+//    timeout=Duration.ofSeconds(3)
+
+
+//            System.out.println("After task :"+(System.currentTimeMillis()-now))
+
 }
 
 
 
 
-//task haw{
-//    doLast{
-//        URL[] urls = sourceSets.main.runtimeClasspath.files as URL[]
-//        def classloader = new URLClassLoader(urls, null)
-//        Class myClass = classloader.load("com.spr.mericlass")
-//        def myInstance = myClass.newInstance()
-//        Method method = myClass.getMethod("show")
-//        method.invoke(myInstance)
-//    }
-//}
-
-//buildscript {
-//    dependencies {
-//        classpath project(':LibraryCode')
-//    }
-//}
-//task doStuff {
-//    doLast {
-//        def myClass = new mericlass();
-//        myClass.doStuff()
-//    }
-//}
-
-
-//task myTest{
-//    doLast {
-//        println "Executing MyClass method"
-//        def v = new mericlass();
-//        v.show();
-//    }
-//}
